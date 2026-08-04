@@ -3,15 +3,14 @@
 my $base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$_';
 
 sub parse {
-    my ($file, $imported) = @_;
+    my ($file, $imported, $modules, $texts) = @_;
     my $text;
-    our %texts;
     if (open(my $f, '<', $file)) {
         local $/;
         $text = <$f>;
         close($f);
     } else {
-        $texts{$file} = '';
+        $texts->{$file} = '';
         return;
     }
     while ($text =~ / \n/) {
@@ -27,17 +26,20 @@ sub parse {
         if ($line =~ /^\s*\/\//) {
             next;
         }
-        if (!$remove and index($line, '/*') != -1 and index($line, '//*') == -1) {
-            if (index($line, '*/') != -1) {
-                $line = substr($line, 0, index($line, '/*')) . ' ' . substr($line, index($line, '*/') + 2);
+        my $i = index($line, '/*');
+        my $j = index($line, '*/');
+        if (!$remove and $i != -1 and index($line, '//*') == -1) {
+            if ($j != -1) {
+                $line = substr($line, 0, $i) . ' ' . substr($line, $j + 2);
             } else {
-                $line = substr($line, 0, index($line, '/*'));
+                $line = substr($line, 0, $i);
                 $remove = 1;
             }
         }
         if ($remove) {
-            if (index($line, '*/') != -1) {
-                $line = substr($line, index($line, '*/') + 2);
+            $i = index($line, '*/');
+            if ($i != -1) {
+                $line = substr($line, $i + 2);
                 $remove = 0;
             } else {
                 next;
@@ -55,29 +57,28 @@ sub parse {
         if (substr($f, 0, 2) eq './') {
             $f = substr($f, 2);
         }
-        if (substr($f, 0, 1) ne '.' and substr($f, 0, 1) ne '/') {
-            my @split = split('/', $file);
-            pop(@split);
-            $f = join('/', @split) . '/' . $f;
+        my $i = substr($f, 0, 1);
+        if ($i ne '.' and $i ne '/') {
+            $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
         } elsif (index($f, '../') == 0) {
-            my $i = 0;
             while (index($f, '../') == 0) {
                 $f = substr($f, 3);
-                $i++;
+                $file = substr($file, 0, rindex($file, '/'));
             }
-            my @split = split('/', $file);
-            splice(@split, -1 - $i);
-            $i = join('/', @split);
-            $f = $i . '/' . $f if length($i);
+            $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
         }
-        return substr($f, -3) eq '.js' ? $f : $f . '.js';
+        if (substr($f, -3) ne '.js') {
+            $f .= '.js';
+        }
+        return $f;
     }
 
     my %files = ($file => []);
     my @order = ();
     my $i = index($text, 'import ');
     while ($i != -1) {
-        if ($i != 0 and substr($text, $i - 1, 1) ne "\n" and substr($text, $i - 1, 1) ne ' ') {
+        my $j = substr($text, $i - 1, 1);
+        if ($i != 0 and $j ne "\n" and $j ne ' ') {
             $text = substr($text, $i + 6);
             $i = index($text, 'import ');
             next;
@@ -88,7 +89,7 @@ sub parse {
         }
         $text = substr($text, $i);
         $i = index($text, 'from');
-        my $j = index($text, "'");
+        $j = index($text, "'");
         my $k = index($text, '"');
         my @names = ();
         if ($i != -1 and ($i < $j or $j == -1) and ($i < $k or $k == -1)) {
@@ -113,7 +114,7 @@ sub parse {
         if ($f eq "'" or $f eq '"') {
             $text = substr($text, $i + 1);
             $f = resolve(substr($text, 0, index($text, $f)), $file);
-            if (!exists($files{$f})) {
+            if (!grep { $_ eq $f } @order) {
                 $files{$f} = ();
                 push(@order, $f);
             }
@@ -121,18 +122,17 @@ sub parse {
         }
         $i = index($text, 'import ');
     }
-    our %modules;
-    $modules{$file} = [@order];
+    $modules->{$file} = [@order];
     for $i (@order) {
         if (!grep { $_ eq $i } @$imported) {
-            if (!exists($modules{$i})) {
+            if (!exists($modules->{$i})) {
                 return;
-            } elsif (!grep { $_ eq $file } @{$modules{$i}}) {
+            } elsif (!grep { $_ eq $file } @{$modules->{$i}}) {
                 return;
             }
         }
     }
-    our @exporta = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
+    my @exporta = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
     my @repeata = ("\n", ' ', '(', ',', '.', '[');
     $text = $texta;
     $i = index($text, 'export ');
@@ -145,8 +145,9 @@ sub parse {
             }
         }
         my $names = '';
-        if (index($text, "\n") != -1) {
-            $names = substr($text, 0, index($text, "\n"));
+        $i = index($text, "\n");
+        if ($i != -1) {
+            $names = substr($text, 0, $i);
         }
         $i = 0;
         while (substr($names, $i, 1) eq ' ') {
@@ -159,18 +160,18 @@ sub parse {
         } else {
             $i = index($names, '=');
             my $j = index($names, '(');
-            if ($i == -1 or ($j != -1 and $i > $j)) {
+            if ($i == -1 or ($i > $j and $j != -1)) {
                 push(@split, $names);
             } else {
-                while (index($names, '=') != -1) {
-                    $i = index($names, '=');
+                while ($i != -1) {
                     push(@split, substr($names, 0, $i));
                     $names = substr($names, $i);
-                    if (index($names, ',') != -1) {
-                        $names = substr($names, index($names, ','));
-                    } else {
+                    $i = index($names, ',');
+                    if ($i == -1) {
                         last;
                     }
+                    $names = substr($names, $i);
+                    $i = index($names, '=');
                 }
             }
         }
@@ -179,8 +180,9 @@ sub parse {
                 $name = substr($name, 1);
             }
             for $i (@repeata) {
-                if (index($name, $i) != -1) {
-                    $name = substr($name, 0, index($name, $i));
+                my $j = index($name, $i);
+                if ($j != -1) {
+                    $name = substr($name, 0, $j);
                 }
             }
             push(@{$files{$file}}, $name);
@@ -198,15 +200,7 @@ sub parse {
             if (length($text) < $a + $i + 1) {
                 return $text;
             }
-            my $cont = 0;
-            my $textb = substr($text, $a - 7, 7) . $next;
-            for my $name (@exporta) {
-                if (index($textb, $name . '_') != -1) {
-                    $cont = 1;
-                    last;
-                }
-            }
-            if ($cont or index($base64, substr($text, $a + $i, 1)) != -1
+            if (index($base64, substr($text, $a + $i, 1)) != -1
                 or index($base64 . "'.", substr($text, $a - 1, 1)) != -1) {
                 $a += $i;
                 next;
@@ -219,10 +213,10 @@ sub parse {
 
     $text = $texta;
     for my $f (keys(%files)) {
-        my $string = substr($f, 0, -3);
-        $string =~ s/[^$base64]/_/g;
+        my $path = substr($f, 0, -3);
+        $path =~ s/[^$base64]/_/g;
         for my $name (@{$files{$f}}) {
-            $text = replace($text, $name, $name . '_' . $string);
+            $text = replace($text, $name, $name . '_' . $path);
         }
     }
     @lines = split("\n", $text);
@@ -242,7 +236,7 @@ sub parse {
             $text .= $line . "\n";
         }
     }
-    $texts{$file} = $text;
+    $texts->{$file} = $text;
 }
 
 sub build {
@@ -251,14 +245,14 @@ sub build {
     $output = 'a/y.js' if !$output;
     my @imported = ();
     my @imports = ($file);
-    our %modules = ();
-    our %texts = ();
+    my %modules = ();
+    my %texts = ();
     while (@imports) {
         $file = $imports[0];
         if (grep { $_ eq $file } @imported) {
             @imports = grep { $_ ne $file } @imports;
         } else {
-            parse($file, \@imported);
+            parse($file, \@imported, \%modules, \%texts);
             unshift(@imports, @{$modules{$file}});
             if (exists($texts{$file})) {
                 push(@imported, $file);

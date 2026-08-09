@@ -1,7 +1,5 @@
 # perl bundle.pl a/a.js a/y.js
 
-my $base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$_';
-
 sub parse {
     my ($file, $imported, $modules, $texts) = @_;
     my $text;
@@ -78,7 +76,7 @@ sub parse {
     my $i = index($text, 'import ');
     while ($i != -1) {
         my $j = substr($text, $i - 1, 1);
-        if ($i != 0 and $j ne "\n" and $j ne ' ') {
+        if ($i != 0 and $j ne "\t" and $j ne "\n" and $j ne ' ') {
             $text = substr($text, $i + 6);
             $i = index($text, 'import ');
             next;
@@ -89,14 +87,14 @@ sub parse {
         }
         $text = substr($text, $i);
         $i = index($text, 'from');
-        $j = index($text, "'");
-        my $k = index($text, '"');
+        $j = index($text, '"');
+        my $k = index($text, "'");
         my @names = ();
         if ($i != -1 and ($i < $j or $j == -1) and ($i < $k or $k == -1)) {
             while ($i < length($text)) {
                 $j = substr($text, $i - 1, 1);
                 $k = substr($text, $i + 4, 1);
-                if (($j eq ' ' or $j eq '}') and ($k eq ' ' or $k eq "'" or $k eq '"')) {
+                if (($j eq ' ' or $j eq '}') and ($k eq ' ' or $k eq '"' or $k eq "'")) {
                     last;
                 }
                 $i += 4;
@@ -111,7 +109,7 @@ sub parse {
             $i = 0;
         }
         my $f = substr($text, $i, 1);
-        if ($f eq "'" or $f eq '"') {
+        if ($f eq '"' or $f eq "'") {
             $text = substr($text, $i + 1);
             $f = resolve(substr($text, 0, index($text, $f)), $file);
             if (!grep { $_ eq $f } @order) {
@@ -132,13 +130,13 @@ sub parse {
             }
         }
     }
-    my @exporta = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
-    my @repeata = ("\n", ' ', '(', ',', '.', '[');
+    my @declares = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
+    my @defines = ("\n", ' ', '(', ',', '.', '[');
     $text = $texta;
     $i = index($text, 'export ');
     while ($i != -1) {
         $text = substr($text, $i + 7);
-        for my $name (@exporta) {
+        for my $name (@declares) {
             $i = index($text, $name);
             if ($i != -1 and $i < 3) {
                 $text = substr($text, $i + length($name));
@@ -158,28 +156,28 @@ sub parse {
             $names = substr($names, $i + 1);
             @split = split(',', substr($names, 0, index($names, '}')));
         } else {
-            $i = index($names, '=');
-            my $j = index($names, '(');
-            if ($i == -1 or ($i > $j and $j != -1)) {
+            $i = index($names, '(');
+            my $j = index($names, '=');
+            if ($j == -1 or ($i < $j and $i != -1)) {
                 push(@split, $names);
             } else {
-                while ($i != -1) {
-                    push(@split, substr($names, 0, $i));
-                    $names = substr($names, $i);
-                    $i = index($names, ',');
-                    if ($i == -1) {
+                while ($j != -1) {
+                    push(@split, substr($names, 0, $j));
+                    $names = substr($names, $j);
+                    $j = index($names, ',');
+                    if ($j == -1) {
                         last;
                     }
-                    $names = substr($names, $i);
-                    $i = index($names, '=');
+                    $names = substr($names, $j);
+                    $j = index($names, '=');
                 }
             }
         }
         for my $name (@split) {
-            while (grep { $_ eq substr($name, 0, 1) } @repeata) {
+            while (grep { $_ eq substr($name, 0, 1) } @defines) {
                 $name = substr($name, 1);
             }
-            for $i (@repeata) {
+            for $i (@defines) {
                 my $j = index($name, $i);
                 if ($j != -1) {
                     $name = substr($name, 0, $j);
@@ -189,6 +187,7 @@ sub parse {
         }
         $i = index($text, 'export ');
     }
+    our $base64 = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
     sub replace {
         my ($text, $past, $next) = @_;
@@ -201,7 +200,7 @@ sub parse {
                 return $text;
             }
             if (index($base64, substr($text, $a + $i, 1)) != -1
-                or index($base64 . "'.", substr($text, $a - 1, 1)) != -1) {
+                or index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1) {
                 $a += $i;
                 next;
             }

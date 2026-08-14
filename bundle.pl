@@ -24,10 +24,8 @@ sub parse {
         if ($line =~ /^\s*\/\//) {
             next;
         }
-        my $i = index($line, '/*');
-        my $j = index($line, '*/');
-        if (!$remove and $i != -1 and index($line, '//*') == -1) {
-            if ($j != -1) {
+        if (!$remove and (my $i = index($line, '/*')) != -1 and index($line, '//*') == -1) {
+            if ((my $j = index($line, '*/')) != -1) {
                 $line = substr($line, 0, $i) . ' ' . substr($line, $j + 2);
             } else {
                 $line = substr($line, 0, $i);
@@ -35,8 +33,7 @@ sub parse {
             }
         }
         if ($remove) {
-            $i = index($line, '*/');
-            if ($i != -1) {
+            if ((my $i = index($line, '*/')) != -1) {
                 $line = substr($line, $i + 2);
                 $remove = 0;
             } else {
@@ -73,8 +70,8 @@ sub parse {
 
     my %files = ($file => []);
     my @order = ();
-    my $i = index($text, 'import ');
-    while ($i != -1) {
+    my $i;
+    while (($i = index($text, 'import ')) != -1) {
         my $j = substr($text, $i - 1, 1);
         if ($i != 0 and $j ne "\t" and $j ne "\n" and $j ne ' ') {
             $text = substr($text, $i + 6);
@@ -118,7 +115,6 @@ sub parse {
             }
             push(@{$files{$f}}, @names);
         }
-        $i = index($text, 'import ');
     }
     $modules->{$file} = [@order];
     for $i (@order) {
@@ -133,8 +129,7 @@ sub parse {
     my @declares = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
     my @defines = ("\n", ' ', '(', ',', '.', '[');
     $text = $texta;
-    $i = index($text, 'export ');
-    while ($i != -1) {
+    while (($i = index($text, 'export ')) != -1) {
         $text = substr($text, $i + 7);
         for my $name (@declares) {
             $i = index($text, $name);
@@ -143,8 +138,7 @@ sub parse {
             }
         }
         my $names = '';
-        $i = index($text, "\n");
-        if ($i != -1) {
+        if (($i = index($text, "\n")) != -1) {
             $names = substr($text, 0, $i);
         }
         $i = 0;
@@ -164,8 +158,7 @@ sub parse {
                 while ($j != -1) {
                     push(@split, substr($names, 0, $j));
                     $names = substr($names, $j);
-                    $j = index($names, ',');
-                    if ($j == -1) {
+                    if (($j = index($names, ',')) == -1) {
                         last;
                     }
                     $names = substr($names, $j);
@@ -178,14 +171,12 @@ sub parse {
                 $name = substr($name, 1);
             }
             for $i (@defines) {
-                my $j = index($name, $i);
-                if ($j != -1) {
+                if ((my $j = index($name, $i)) != -1) {
                     $name = substr($name, 0, $j);
                 }
             }
             push(@{$files{$file}}, $name);
         }
-        $i = index($text, 'export ');
     }
     our $base64 = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
@@ -194,8 +185,7 @@ sub parse {
         my $a = 0;
         my $i = length($past);
         my $j = length($next);
-        while (index($text, $past, $a) != -1) {
-            $a = index($text, $past, $a);
+        while (($a = index($text, $past, $a)) != -1) {
             if (length($text) < $a + $i + 1) {
                 return $text;
             }

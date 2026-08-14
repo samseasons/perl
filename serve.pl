@@ -21,15 +21,15 @@ sub serve {
     print("localhost:$port\n");
     while (1) {
         my $client = $server->accept();
-        my $request;
-        $client->recv($request, 1024);
+        $client->recv(my $request, 1024);
         my $file = (split(' ', $request))[1];
         $file =~ s/%20/ /g;
         my ($type) = $file =~ /\.([^.]+)$/;
-        $type = $types{$type} if $type;
-        if (substr($file, 0, 1) ne '/' or !$type) {
+        if (substr($file, 0, 1) ne '/' or !-f $folder . $file) {
             $file = '/x.html';
             $type = 'text/html';
+        } else {
+            $type = $types{$type};
         }
         if (open(my $f, '<', $folder . $file)) {
             local $/;

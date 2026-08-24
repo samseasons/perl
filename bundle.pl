@@ -1,7 +1,50 @@
 # perl bundle.pl a/a.js a/y.js
 
+my $base64 = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+
+sub resolve {
+    my ($f, $file) = @_;
+    if (index($f, './') == 0) {
+        $f = substr($f, 2);
+    }
+    my $i = substr($f, 0, 1);
+    if ($i ne '.' and $i ne '/') {
+        $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
+    } elsif (index($f, '../') == 0) {
+        while (index($f, '../') == 0) {
+            $f = substr($f, 3);
+            $file = substr($file, 0, rindex($file, '/'));
+        }
+        $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
+    }
+    if (substr($f, -3) ne '.js') {
+        $f .= '.js';
+    }
+    return $f;
+}
+
+sub replace {
+    my ($text, $past, $next) = @_;
+    my $a = 0;
+    my $i = length($past);
+    my $j = length($next);
+    while (($a = index($text, $past, $a)) != -1) {
+        if (length($text) < $a + $i + 1) {
+            return $text;
+        }
+        if (index($base64, substr($text, $a + $i, 1)) != -1
+            or index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1) {
+            $a += $i;
+            next;
+        }
+        $text = substr($text, 0, $a) . $next . substr($text, $a + $i);
+        $a += $j;
+    }
+    return $text;
+}
+
 sub parse {
-    my ($file, $imported, $modules, $texts) = @_;
+    my ($file, $modules, $texts) = @_;
     my $text;
     if (open(my $f, '<', $file)) {
         local $/;
@@ -46,28 +89,6 @@ sub parse {
         }
     }
     my $texta = $text;
-
-    sub resolve {
-        my ($f, $file) = @_;
-        if (substr($f, 0, 2) eq './') {
-            $f = substr($f, 2);
-        }
-        my $i = substr($f, 0, 1);
-        if ($i ne '.' and $i ne '/') {
-            $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
-        } elsif (index($f, '../') == 0) {
-            while (index($f, '../') == 0) {
-                $f = substr($f, 3);
-                $file = substr($file, 0, rindex($file, '/'));
-            }
-            $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
-        }
-        if (substr($f, -3) ne '.js') {
-            $f .= '.js';
-        }
-        return $f;
-    }
-
     my %files = ($file => []);
     my @order = ();
     my $i;
@@ -118,7 +139,7 @@ sub parse {
     }
     $modules->{$file} = [@order];
     for $i (@order) {
-        if (!grep { $_ eq $i } @$imported) {
+        if (!exists($texts->{$i})) {
             if (!exists($modules->{$i})) {
                 return;
             } elsif (!grep { $_ eq $file } @{$modules->{$i}}) {
@@ -178,28 +199,6 @@ sub parse {
             push(@{$files{$file}}, $name);
         }
     }
-    our $base64 = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
-
-    sub replace {
-        my ($text, $past, $next) = @_;
-        my $a = 0;
-        my $i = length($past);
-        my $j = length($next);
-        while (($a = index($text, $past, $a)) != -1) {
-            if (length($text) < $a + $i + 1) {
-                return $text;
-            }
-            if (index($base64, substr($text, $a + $i, 1)) != -1
-                or index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1) {
-                $a += $i;
-                next;
-            }
-            $text = substr($text, 0, $a) . $next . substr($text, $a + $i);
-            $a += $j;
-        }
-        return $text;
-    }
-
     $text = $texta;
     for my $f (keys(%files)) {
         my $path = substr($f, 0, -3);
@@ -241,7 +240,7 @@ sub build {
         if (grep { $_ eq $file } @imported) {
             @imports = grep { $_ ne $file } @imports;
         } else {
-            parse($file, \@imported, \%modules, \%texts);
+            parse($file, \%modules, \%texts);
             unshift(@imports, @{$modules{$file}});
             if (exists($texts{$file})) {
                 push(@imported, $file);

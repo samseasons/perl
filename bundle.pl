@@ -23,7 +23,7 @@ sub resolve {
     return $f;
 }
 
-sub replace {
+sub substitute {
     my ($text, $past, $next) = @_;
     my $a = 0;
     my $i = length($past);
@@ -33,7 +33,7 @@ sub replace {
             return $text;
         }
         if (index($base64, substr($text, $a + $i, 1)) != -1
-            or index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1) {
+            or ($a > 0 && index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1)) {
             $a += $i;
             next;
         }
@@ -93,11 +93,13 @@ sub parse {
     my @order = ();
     my $i;
     while (($i = index($text, 'import ')) != -1) {
-        my $j = substr($text, $i - 1, 1);
-        if ($i != 0 and $j ne "\t" and $j ne "\n" and $j ne ' ') {
-            $text = substr($text, $i + 6);
-            $i = index($text, 'import ');
-            next;
+        if ($i != 0) {
+            my $j = substr($text, $i - 1, 1);
+            if ($j ne "\t" and $j ne "\n" and $j ne ' ') {
+                $text = substr($text, $i + 6);
+                $i = index($text, 'import ');
+                next;
+            }
         }
         $i += 6;
         while (substr($text, $i, 1) eq ' ') {
@@ -176,7 +178,7 @@ sub parse {
             if ($j == -1 or ($i < $j and $i != -1)) {
                 push(@split, $names);
             } else {
-                while ($j != -1) {
+                while ($j != -1 && $j + 1 != index($names, '>')) {
                     push(@split, substr($names, 0, $j));
                     $names = substr($names, $j);
                     if (($j = index($names, ',')) == -1) {
@@ -204,7 +206,7 @@ sub parse {
         my $path = substr($f, 0, -3);
         $path =~ s/[^$base64]/_/g;
         for my $name (@{$files{$f}}) {
-            $text = replace($text, $name, $name . '_' . $path);
+            $text = substitute($text, $name, $name . '_' . $path);
         }
     }
     @lines = split("\n", $text);

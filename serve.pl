@@ -25,7 +25,7 @@ sub serve {
         my $file = (split(' ', $request))[1];
         $file =~ s/%20/ /g;
         my ($type) = $file =~ /\.([^.]+)$/;
-        if (substr($file, 0, 1) ne '/' or !-f $folder . $file) {
+        if (substr($file, 0, 1) ne '/' or $file eq '/') {
             $file = '/x.html';
             $type = 'text/html';
         } else {

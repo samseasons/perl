@@ -33,7 +33,7 @@ sub substitute {
             return $text;
         }
         if (index($base64, substr($text, $a + $i, 1)) != -1
-            or ($a > 0 && index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1)) {
+            or ($a != 0 && index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1)) {
             $a += $i;
             next;
         }
@@ -88,16 +88,15 @@ sub parse {
             $text .= $line . "\n";
         }
     }
-    my $texta = $text;
     my %files = ($file => []);
     my @order = ();
+    my $texta = $text;
     my $i;
     while (($i = index($text, 'import ')) != -1) {
         if ($i != 0) {
             my $j = substr($text, $i - 1, 1);
             if ($j ne "\t" and $j ne "\n" and $j ne ' ') {
                 $text = substr($text, $i + 6);
-                $i = index($text, 'import ');
                 next;
             }
         }
@@ -107,7 +106,7 @@ sub parse {
         }
         $text = substr($text, $i);
         $i = index($text, 'from');
-        $j = index($text, '"');
+        my $j = index($text, '"');
         my $k = index($text, "'");
         my @names = ();
         if ($i != -1 and ($i < $j or $j == -1) and ($i < $k or $k == -1)) {
@@ -139,12 +138,13 @@ sub parse {
             push(@{$files{$f}}, @names);
         }
     }
-    $modules->{$file} = [@order];
-    for $i (@order) {
-        if (!exists($texts->{$i})) {
-            if (!exists($modules->{$i})) {
-                return;
-            } elsif (!grep { $_ eq $file } @{$modules->{$i}}) {
+    my @mods = ();
+    $modules->{$file} = [];
+    for my $f (@order) {
+        if (!exists($texts->{$f})) {
+            push(@mods, $f);
+            if (!exists($modules->{$f})) {
+                $modules->{$file} = [@mods];
                 return;
             }
         }
@@ -178,7 +178,7 @@ sub parse {
             if ($j == -1 or ($i < $j and $i != -1)) {
                 push(@split, $names);
             } else {
-                while ($j != -1 && $j + 1 != index($names, '>')) {
+                while ($j != -1 && substr($names, $j + 1, 1) ne '>') {
                     push(@split, substr($names, 0, $j));
                     $names = substr($names, $j);
                     if (($j = index($names, ',')) == -1) {
@@ -237,10 +237,10 @@ sub build {
     my @imports = ($file);
     my %modules = ();
     my %texts = ();
-    while (@imports) {
+    while (scalar(@imports) != 0) {
         $file = $imports[0];
         if (grep { $_ eq $file } @imported) {
-            @imports = grep { $_ ne $file } @imports;
+            shift(@imports);
         } else {
             parse($file, \%modules, \%texts);
             unshift(@imports, @{$modules{$file}});

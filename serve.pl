@@ -3,10 +3,10 @@
 use IO::Socket::INET;
 
 my %types = (
-    css => 'text/css',
-    html => 'text/html',
-    ico => 'image/x-icon',
-    js => 'application/javascript'
+    'css' => 'text/css',
+    'html' => 'text/html',
+    'ico' => 'image/x-icon',
+    'js' => 'application/javascript'
 );
 
 sub serve {
@@ -24,12 +24,12 @@ sub serve {
         $client->recv(my $request, 1024);
         my $file = (split(' ', $request))[1];
         $file =~ s/%20/ /g;
-        my ($type) = $file =~ /\.([^.]+)$/;
+        my $type;
         if (substr($file, 0, 1) ne '/' or $file eq '/') {
             $file = '/x.html';
             $type = 'text/html';
         } else {
-            $type = $types{$type};
+            $type = $types{($file =~ /\.([^.]+)$/)[0]};
         }
         if (open(my $f, '<', $folder . $file)) {
             local $/;

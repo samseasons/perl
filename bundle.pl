@@ -30,9 +30,8 @@ sub substitute {
     my $j = length($next);
     while (($a = index($text, $past, $a)) != -1) {
         if (length($text) < $a + $i + 1) {
-            return $text;
-        }
-        if (index($base64, substr($text, $a + $i, 1)) != -1
+            last;
+        } elsif (index($base64, substr($text, $a + $i, 1)) != -1
             or ($a != 0 && index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1)) {
             $a += $i;
             next;
@@ -53,12 +52,6 @@ sub parse {
     } else {
         $texts->{$file} = '';
         return;
-    }
-    while ($text =~ / \n/) {
-        $text =~ s/ \n/\n/g
-    }
-    while ($text =~ /\n\n/) {
-        $text =~ s/\n\n/\n/g
     }
     my @lines = split("\n", $text);
     my $remove = 0;
@@ -91,8 +84,7 @@ sub parse {
     my %files = ($file => []);
     my @order = ();
     my $texta = $text;
-    my $i;
-    while (($i = index($text, 'import ')) != -1) {
+    while ((my $i = index($text, 'import ')) != -1) {
         if ($i != 0) {
             my $j = substr($text, $i - 1, 1);
             if ($j ne "\t" and $j ne "\n" and $j ne ' ') {
@@ -152,7 +144,7 @@ sub parse {
     my @declares = ('async', 'class', 'const', 'default', 'function', 'let', 'var');
     my @defines = ("\n", ' ', '(', ',', '.', '[');
     $text = $texta;
-    while (($i = index($text, 'export ')) != -1) {
+    while ((my $i = index($text, 'export ')) != -1) {
         $text = substr($text, $i + 7);
         for my $name (@declares) {
             $i = index($text, $name);
@@ -212,12 +204,18 @@ sub parse {
     @lines = split("\n", $text);
     $text = '';
     for my $line (@lines) {
-        my $a = $line =~ s/^\s+//r;
+        my $a = $line;
+        while ($a =~ /^\s+/) {
+            $a = substr($a, length($&));
+        }
         if (index($a, 'export default ') == 0) {
             $line = substr($a, 15);
         } elsif (index($a, 'export ') == 0) {
             $line = substr($a, 7);
-            $a = $line =~ s/^\s+//r;
+            $a = $line;
+            while ($a =~ /^\s+/) {
+                $a = substr($a, length($&));
+            }
             if (substr($a, 0, 1) eq '{') {
                 next;
             }

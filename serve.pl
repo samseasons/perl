@@ -21,7 +21,7 @@ sub serve {
     print("localhost:$port\n");
     while (1) {
         my $client = $server->accept();
-        $client->recv(my $request, 1024);
+        $client->recv(my $request, 4096);
         my $file = (split(' ', $request))[1];
         $file =~ s/%20/ /g;
         my $type;
@@ -29,7 +29,7 @@ sub serve {
             $file = '/x.html';
             $type = 'text/html';
         } else {
-            $type = $types{($file =~ /\.([^.]+)$/)[0]};
+            $type = $types{(split('\.', $file))[-1]};
         }
         if (open(my $f, '<', $folder . $file)) {
             local $/;

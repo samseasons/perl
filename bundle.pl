@@ -24,14 +24,12 @@ sub resolve {
 }
 
 sub substitute {
-    my ($text, $past, $next) = @_;
+    my ($next, $past, $text) = @_;
     my $a = 0;
     my $i = length($past);
     my $j = length($next);
     while (($a = index($text, $past, $a)) != -1) {
-        if (length($text) < $a + $i + 1) {
-            last;
-        } elsif (index($base64, substr($text, $a + $i, 1)) != -1
+        if (index($base64, substr($text, $a + $i, 1)) != -1
             or ($a != 0 && index($base64 . "\"'.", substr($text, $a - 1, 1)) != -1)) {
             $a += $i;
             next;
@@ -131,7 +129,6 @@ sub parse {
         }
     }
     my @mods = ();
-    $modules->{$file} = [];
     for my $f (@order) {
         if (!exists($texts->{$f})) {
             push(@mods, $f);
@@ -198,7 +195,7 @@ sub parse {
         my $path = substr($f, 0, -3);
         $path =~ s/[^$base64]/_/g;
         for my $name (@{$files{$f}}) {
-            $text = substitute($text, $name, $name . '_' . $path);
+            $text = substitute($name . '_' . $path, $name, $text);
         }
     }
     @lines = split("\n", $text);
@@ -241,7 +238,9 @@ sub build {
             shift(@imports);
         } else {
             parse($file, \%modules, \%texts);
-            unshift(@imports, @{$modules{$file}});
+            if (exists($modules{$file})) {
+                unshift(@imports, @{$modules{$file}});
+            }
             if (exists($texts{$file})) {
                 push(@imported, $file);
             }

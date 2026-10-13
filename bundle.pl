@@ -4,18 +4,22 @@ my $base64 = '$0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
 sub resolve {
     my ($f, $file) = @_;
-    if (index($f, './') == 0) {
-        $f = substr($f, 2);
+    while (index($f, '../') == 0) {
+        $f = substr($f, 3);
+        $file = substr($file, 0, rindex($file, '/'));
     }
-    my $i = substr($f, 0, 1);
-    if ($i ne '.' and $i ne '/') {
-        $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
-    } elsif (index($f, '../') == 0) {
-        while (index($f, '../') == 0) {
-            $f = substr($f, 3);
-            $file = substr($file, 0, rindex($file, '/'));
+    $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
+    my @treats = ('', '/', '', '', '/', "\\", '');
+    my @tricks = ('~', ':', './', ".\\", '//', "\\\\", '../');
+    for (my $i = 0, my $length = scalar(@treats); $i < $length; $i++) {
+        my $treat = $treats[$i];
+        my $trick = $tricks[$i];
+        while (index($f, $trick) != -1) {
+            $f =~ s/\Q$trick\E/$treat/g;
         }
-        $f = substr($file, 0, rindex($file, '/')) . '/' . $f;
+    }
+    while (substr($f, 0, 1) eq '/') {
+        $f = substr($f, 1);
     }
     if (substr($f, -3) ne '.js') {
         $f .= '.js';

@@ -13,23 +13,33 @@ sub serve {
     my ($folder, $port) = @_;
     $folder = 'a' if !$folder;
     $port = 1234 if !$port;
-    my $server = IO::Socket::INET->new(
-        Listen => 5,
-        LocalPort => $port,
-        Reuse => 1
-    );
+    my $index = '/x.html';
+    if (substr($folder, -5) eq '.html') {
+        if ((my $i = rindex($folder, '/')) != -1) {
+            $index = substr($folder, $i);
+            $folder = substr($folder, 0, $i);
+        }
+    }
+    my $server = IO::Socket::INET->new(Listen => 5, LocalPort => $port, Reuse => 1);
     print("localhost:$port\n");
     while (1) {
         my $client = $server->accept();
         $client->recv(my $request, 4096);
-        my $file = (split(' ', $request))[1];
+        my @lines = split(' ', $request);
+        if (scalar(@lines) == 1) {
+            next;
+        }
+        my $file = $lines[1];
+        if (substr($file, 0, 1) ne '/' or index($file, '..') != -1) {
+            next;
+        }
         $file =~ s/%20/ /g;
-        my $type;
-        if (substr($file, 0, 1) ne '/' or $file eq '/') {
-            $file = '/x.html';
-            $type = 'text/html';
+        my $type = substr($file, rindex($file, '.') + 1);
+        if (exists($types{$type})) {
+            $type = $types{$type};
         } else {
-            $type = $types{(split('\.', $file))[-1]};
+            $file = $index;
+            $type = 'text/html';
         }
         if (open(my $f, '<', $folder . $file)) {
             local $/;
